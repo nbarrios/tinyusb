@@ -129,7 +129,7 @@ static void bus_reset(void)
   //   Recommended value = 10 + 1 + 2 x (16+2) = 47 --> Let's make it 52
   USB0.grstctl |= 0x10 << USB_TXFNUM_S; // fifo 0x10,
   USB0.grstctl |= USB_TXFFLSH_M;        // Flush fifo
-  USB0.grxfsiz = 15 + 2 * (256/4) + 2*EP_MAX;
+  USB0.grxfsiz = 15 + 2 * (64/4) + 2*EP_MAX;
 
   // Control IN uses FIFO 0 with 64 bytes ( 16 32-bit word )
   USB0.gnptxfsiz = (16 << USB_NPTXFDEP_S) | (USB0.grxfsiz & 0x0000ffffUL);
