@@ -63,6 +63,7 @@ typedef struct {
     uint16_t total_len;
     uint16_t queued_len;
     uint16_t max_size;
+    uint8_t  interval;
     bool short_packet;
 } xfer_ctl_t;
 
@@ -266,6 +267,7 @@ bool dcd_edpt_open(uint8_t rhport, tusb_desc_endpoint_t const *desc_edpt)
 
   xfer_ctl_t *xfer = XFER_CTL_BASE(epnum, dir);
   xfer->max_size = desc_edpt->wMaxPacketSize.size;
+  xfer->interval = desc_edpt->bInterval;
 
   if (dir == TUSB_DIR_OUT) {
     out_ep[epnum].doepctl |= USB_USBACTEP0_M |
@@ -350,8 +352,15 @@ bool dcd_edpt_xfer(uint8_t rhport, uint8_t ep_addr, uint8_t *buffer, uint16_t to
   // here.
   if (dir == TUSB_DIR_IN) {
     // A full IN transfer (multiple packets, possibly) triggers XFRC.
-    USB0.in_ep_reg[epnum].dieptsiz = (num_packets << USB_D_PKTCNT0_S) | total_bytes;
+    USB0.in_ep_reg[epnum].dieptsiz = (num_packets << USB_D_PKTCNT0_S) | ((total_bytes << USB_D_XFERSIZE0_S) & USB_D_XFERSIZE0_M);
     USB0.in_ep_reg[epnum].diepctl |= USB_D_EPENA1_M | USB_D_CNAK1_M; // Enable | CNAK
+
+    //For ISO endpoint set correct odd/even bit for next frame.
+    if ((USB0.in_ep_reg[epnum].diepctl & USB_D_EPTYPE0_M) == (0x1u << USB_D_EPTYPE0_S) && (XFER_CTL_BASE(epnum, dir))->interval == 1)
+    {
+      uint32_t const odd_frame_now = (USB0.dsts & (1u << USB_SOFFN_S));
+      USB0.in_ep_reg[epnum].diepctl |= (odd_frame_now ? USB_DI_SETD0PID1_M : USB_DI_SETD1PID1_M);
+    }
 
     // Enable fifo empty interrupt only if there are something to put in the fifo.
     if(total_bytes != 0) {
