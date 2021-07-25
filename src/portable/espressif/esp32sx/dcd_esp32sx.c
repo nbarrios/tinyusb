@@ -256,9 +256,11 @@ bool dcd_edpt_open(uint8_t rhport, tusb_desc_endpoint_t const *desc_edpt)
 
   TU_ASSERT(epnum < EP_MAX);
 
+  uint16_t base_size = desc_edpt->wMaxPacketSize.size; 
   if (desc_edpt->bmAttributes.xfer == TUSB_XFER_ISOCHRONOUS)
   {
     TU_ASSERT(desc_edpt->wMaxPacketSize.size <= 1023);
+    base_size *= 2;
   }
   else
   {
@@ -268,6 +270,8 @@ bool dcd_edpt_open(uint8_t rhport, tusb_desc_endpoint_t const *desc_edpt)
   xfer_ctl_t *xfer = XFER_CTL_BASE(epnum, dir);
   xfer->max_size = desc_edpt->wMaxPacketSize.size;
   xfer->interval = desc_edpt->bInterval;
+
+  uint16_t const fifo_size = (base_size + 3) / 4; //Round up to next full word
 
   if (dir == TUSB_DIR_OUT) {
     out_ep[epnum].doepctl |= USB_USBACTEP0_M |
@@ -313,7 +317,6 @@ bool dcd_edpt_open(uint8_t rhport, tusb_desc_endpoint_t const *desc_edpt)
     // Both TXFD and TXSA are in unit of 32-bit words.
     // IN FIFO 0 was configured during enumeration, hence the "+ 16".
     uint16_t const allocated_size = (USB0.grxfsiz & 0x0000ffff) + 16;
-    uint16_t const fifo_size = (EP_FIFO_SIZE/4 - allocated_size) / (EP_FIFO_NUM-1);
     uint32_t const fifo_offset = allocated_size + fifo_size*(fifo_num-1);
 
     // DIEPTXF starts at FIFO #1.
